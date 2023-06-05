@@ -34,7 +34,7 @@ RUN lein deps
 ADD . .
 
 # build the studio
-RUN cd studio && npm run publish-code
+RUN cd frontend && npm run publish-code
 
 # build the app
 RUN bin/build
