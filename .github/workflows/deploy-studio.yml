@@ -10,18 +10,12 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@master
+        with:
+          submodules: recursive
 
       - uses: actions/setup-node@v3
         with:
           node-version: 16.13.1
-
-      # Update references
-      - name: Git Sumbodule Update
-        run: |
-          git submodule update --remote --recursive
-
-      - name: install
-        run: cd frontend && yarn
 
       # - name: plugins
       #   run: yarn add umi-plugin-pro
@@ -30,7 +24,7 @@ jobs:
       #   run: yarn run pro fetch-blocks
 
       - name: site
-        run: cd frontend && npm run build
+        run: cd frontend && yarn && npm run build
         env:
           NODE_ENV: production
 
