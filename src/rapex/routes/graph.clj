@@ -67,6 +67,42 @@
                                (log/error "Error: " e)
                                (get-error-response e))))}}]
 
+   ["/knowledges/:id"
+    {:get    {:summary    "Get a graph by id."
+              :parameters {:path {:id number?}}
+              :responses  {200 {:body map?}
+                           404 {:body {:msg string?}}}
+              :handler    (fn [{{{:keys [id]} :path} :parameters
+                                {:as headers} :headers}]
+                            (log/info "Get graph: " id)
+                            (let [curator (get headers "x-auth-users")
+                                  resp (qgd/get-knowledges curator :id id)]
+                              (if resp
+                                (ok (first resp))
+                                (not-found {:msg (format "Not found the graph: %s" id)}))))}
+
+     :put    {:summary    "Update a graph."
+              :parameters {:path {:id integer?}
+                           :body qgd/custom-knowledge-spec}
+              :responses  {200 {:body {:id number?}}
+                           404 {:body {:msg string?}}}
+              :handler    (fn [{{{:keys [id]} :path
+                                 {:as payload} :body} :parameters
+                                {:as headers} :headers}]
+                            (log/info "Update graph: " id payload)
+                            (let [curator (get headers "x-auth-users")
+                                  resp (qgd/update-knowledge! id curator payload)]
+                              (if resp
+                                (ok {:id id})
+                                (not-found {:msg (format "Not found the graph: %s" id)}))))}
+
+     :delete {:summary    "Delete a graph."
+              :parameters {:path {:id number?}}
+              :responses  {204 nil}
+              :handler    (fn [{{{:keys [id]} :path} :parameters}]
+                            (qgd/delete-knowledge! id)
+                            (no-content))}}]
+
    ["/node-types"
     {:get  {:summary    "Get the type of all nodes."
             :parameters {}

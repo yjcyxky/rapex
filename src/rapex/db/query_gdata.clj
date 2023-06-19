@@ -726,10 +726,10 @@
 
 (s/def ::relation_id
   (st/spec
-   {:spec                string?
-    :type                :string
+   {:spec                number?
+    :type                :number
     :description         "Relation id"
-    :swagger/type        "string"
+    :swagger/type        "number"
     :swagger/default     ""
     :reason              "The relation_id parameter can't be none."}))
 
@@ -806,13 +806,18 @@
 
 (defn get-knowledges
   "Get knowledges based on user's query string."
-  ^PersistentArrayMap [^String curator & {:keys [page page-size]
+  ^PersistentArrayMap [^String curator & {:keys [^Integer page ^Integer page-size ^Integer id]
                                           :or {page 1
                                                page-size 10}}]
   (memorized-make-curation-table!)
-  (let [sqlmap {:select [:*]
+  (let [where-clause (cond (and id curator)
+                           [:and [:in :curator curator]
+                            [:= :relation_id id]]
+                           :else
+                           [:in :curator curator])
+        sqlmap {:select [:*]
                 :from :knowledge_curation
-                :where [:in :curator curator]
+                :where where-clause
                 :order-by [[:created_at :desc]]
                 :limit page-size
                 :offset (* (- page 1) page-size)}
@@ -822,6 +827,42 @@
      :total (or total 0)
      :page page
      :page_size page-size}))
+
+(defn delete-knowledge!
+  "Delete a knowledge based on the given relation_id."
+  [^Integer relation-id]
+  (memorized-make-curation-table!)
+  (let [db-conn (get-gmetadb-connection)
+        sqlmap {:delete-from :knowledge_curation
+                :where [:= :relation_id relation-id]}
+        result (jdbc/execute! db-conn (sql/format sqlmap))]
+    result))
+
+(defn update-knowledge!
+  "Update a knowledge based on the given relation_id."
+  [^Integer relation-id ^String curator
+   {:keys [source_name source_type source_id target_name pmid
+           target_type target_id relation_type key_sentence]}]
+  (memorized-make-curation-table!)
+  (let [db-conn (get-gmetadb-connection)
+        values {:source_name source_name
+                :source_type source_type
+                :source_id source_id
+                :target_name target_name
+                :target_type target_type
+                :target_id target_id
+                :relation_type relation_type
+                :key_sentence key_sentence
+                :curator curator
+                :pmid pmid}
+        ;; Remove the nil values from the map.
+        values (into {} (filter (comp not nil? val) values))
+        sqlmap {:update :knowledge_curation
+                :set values
+                :where [:= :relation_id relation-id]}
+        result (jdbc/execute! db-conn (sql/format sqlmap))]
+    (log/info "Update the knowledge with the following sqlmap: " sqlmap)
+    result))
 
 (defn create-knowledge!
   [{:keys [source_name source_type source_id target_name pmid
